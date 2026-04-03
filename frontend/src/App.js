@@ -1,53 +1,94 @@
-import { useEffect } from "react";
-import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { Toaster } from './components/ui/sonner';
+import LoginPage from './pages/LoginPage';
+import Dashboard from './pages/Dashboard';
+import AuthCallback from './pages/AuthCallback';
+import { Loader2 } from 'lucide-react';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+// Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
+  // If we have user data passed from AuthCallback, use it
+  if (location.state?.user) {
+    return children;
+  }
 
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
+
+// Public Route - redirects to dashboard if already logged in
+const PublicRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+// App Router with session_id detection
+const AppRouter = () => {
+  const location = useLocation();
+
+  // Check URL fragment (not query params) for session_id synchronously during render
+  // This prevents race conditions by processing new session_id FIRST before checking existing session_token
+  if (location.hash?.includes('session_id=')) {
+    return <AuthCallback />;
+  }
 
   return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
+    <Routes>
+      <Route path="/login" element={
+        <PublicRoute>
+          <LoginPage />
+        </PublicRoute>
+      } />
+      <Route path="/dashboard" element={
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
   );
 };
 
 function App() {
   return (
-    <div className="App">
+    <AuthProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
+        <div className="dark">
+          <AppRouter />
+          <Toaster position="top-right" theme="dark" />
+        </div>
       </BrowserRouter>
-    </div>
+    </AuthProvider>
   );
 }
 
