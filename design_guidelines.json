@@ -1,0 +1,106 @@
+{
+  "project_name": "DischargeFlow",
+  "theme_and_archetype": {
+    "theme": "Dark",
+    "archetype": "Archetype 4 (Swiss & High-Contrast) tailored for Healthcare",
+    "emotion": "Professional, Trustworthy, Efficient, Calming",
+    "rationale": "Medical dashboards need high readability and low cognitive load. A deeply desaturated dark mode (Zinc/Slate) with clear, high-contrast structural borders rather than shadows ensures data legibility. Saturated accents are strictly reserved for status indicators (Emerald for success, Amber for pending, Soft Blue for CTAs)."
+  },
+  "colors": {
+    "background": "bg-zinc-950",
+    "surface": {
+      "default": "bg-zinc-900",
+      "hover": "hover:bg-zinc-800",
+      "active": "bg-zinc-800",
+      "glass": "bg-zinc-950/80 backdrop-blur-xl"
+    },
+    "border": {
+      "default": "border-zinc-800",
+      "focus": "focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+    },
+    "text": {
+      "primary": "text-zinc-50",
+      "secondary": "text-zinc-400",
+      "muted": "text-zinc-500",
+      "inverse": "text-zinc-950"
+    },
+    "accent": {
+      "primary": "bg-blue-600 hover:bg-blue-500 text-white",
+      "success": "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+      "warning": "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+      "error": "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+    }
+  },
+  "typography": {
+    "font_families": {
+      "heading": "'Outfit', sans-serif",
+      "body": "'IBM Plex Sans', sans-serif",
+      "mono": "'JetBrains Mono', monospace"
+    },
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl tracking-tight font-semibold text-zinc-50",
+      "h2": "text-2xl sm:text-3xl tracking-tight font-medium text-zinc-50",
+      "h3": "text-xl sm:text-2xl tracking-tight font-medium text-zinc-50",
+      "h4": "text-lg font-medium text-zinc-100",
+      "body": "text-base text-zinc-300 leading-relaxed",
+      "small": "text-sm text-zinc-400",
+      "overline": "text-xs font-bold uppercase tracking-[0.2em] text-zinc-500"
+    }
+  },
+  "layout_and_spacing": {
+    "strategy": "The 'Control Room' Grid (Mode B)",
+    "rules": [
+      "Use strict grid hierarchy with dense and compact spacing. gap-4 or gap-6.",
+      "Override default stretch behavior with align-items: start, use align-self: stretch only when needed.",
+      "Containers with borders must have internal padding (p-6) to prevent text collision.",
+      "Dashboard Cards: Flat background (bg-zinc-900), 1px subtle border (border-zinc-800), NO shadow. Max 8px border-radius.",
+      "Navigation: Persistent sidebar navigation with high contrast active states."
+    ]
+  },
+  "component_rules": {
+    "buttons": "Sharp edges or minimal rounding (rounded-md). Explicit text color on hover. Primary CTA uses blue-600.",
+    "cards": "Cardless or completely flat design. border-collapse layouts for lists to create 'Grid Borders' technical look.",
+    "tables": "Dense rows. text-sm. Hover states on rows: hover:bg-zinc-800/50. Clearly distinguished header row.",
+    "checklists": "Custom Checkbox component (Shadcn-based) mapped to Discharge Workflow. Strikethrough text-zinc-500 on completion.",
+    "ai_summary": "Use a subtle glowing border or soft blue background tint (bg-blue-900/10 border-blue-800/30) to distinguish AI-generated content from standard inputs.",
+    "forms": "Use Shadcn Input, Select, and Form. Never use native html inputs.",
+    "modals_dialogs": "Use Shadcn Dialog with backdrop-blur-sm overlay and dark (zinc-900) surface. Include close 'X' button.",
+    "toast_notifications": "Use Sonner for real-time status updates (e.g., 'Discharge approved', 'Medication prepared'). Dark mode styled."
+  },
+  "motion_and_interaction": {
+    "hover": "All interactive elements must have a subtle background or border color shift.",
+    "focus": "High contrast focus rings required for keyboard accessibility (focus:ring-2 focus:ring-blue-500 focus:outline-none).",
+    "transitions": "Fast, minimal micro-interactions. transition-colors duration-200 ease-in-out."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "usage": "Use stroke-width 1.5 for a clean, professional technical feel."
+  },
+  "media": {
+    "login_background": {
+      "url": "https://images.unsplash.com/photo-1683185520055-8c12d22d300c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGRhcmslMjBibHVlJTIwdGV4dHVyZSUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzc1MTk3MjI2fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Abstract dark blue texture background for the main login screen."
+    },
+    "hospital_building_night": {
+      "url": "https://images.pexels.com/photos/1692693/pexels-photo-1692693.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Hospital building illuminated at night, perfect for a hero split-screen login page."
+    },
+    "user_avatars": [
+      {
+        "role": "Physician",
+        "url": "https://images.pexels.com/photos/28516278/pexels-photo-28516278.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+      },
+      {
+        "role": "Nurse",
+        "url": "https://images.unsplash.com/photo-1673865641073-4479f93a7776?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwyfHxob3NwaXRhbCUyMG51cnNlJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzc1MTk3MjA3fDA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "role": "Pharmacist",
+        "url": "https://images.unsplash.com/photo-1634938332514-6f3d23c8cc42?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwxfHxkb2N0b3IlMjBwb3J0cmFpdCUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3NTE5NzIwN3ww&ixlib=rb-4.1.0&q=85"
+      }
+    ]
+  },
+  "testing": {
+    "data_testid_rules": "All interactive and key informational elements MUST include a data-testid attribute in kebab-case. Examples: login-form-submit-button, patient-list-table, generate-ai-summary-btn."
+  }
+}
