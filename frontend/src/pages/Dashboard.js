@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
+import HomeView from '../components/HomeView';
 import PatientList from '../components/PatientList';
 import PatientDetails from '../components/PatientDetails';
 import WorkflowView from '../components/WorkflowView';
@@ -15,7 +16,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const [activeView, setActiveView] = useState('patients');
+  const [activeView, setActiveView] = useState('home');
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [notifications, setNotifications] = useState([]);
@@ -76,6 +77,8 @@ const Dashboard = () => {
 
   const renderContent = () => {
     switch (activeView) {
+      case 'home':
+        return <HomeView onNavigate={setActiveView} />;
       case 'patient-details':
         return (
           <PatientDetails 

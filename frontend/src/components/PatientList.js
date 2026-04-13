@@ -229,6 +229,20 @@ const PatientList = ({ onPatientSelect, onWorkflowSelect }) => {
         )}
       </div>
 
+      {/* Stat Bar */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: 'Admitted', count: patients.filter(p => p.status === 'admitted').length, color: 'bg-amber-500/10 border-amber-500/20 text-amber-400' },
+          { label: 'Pending Discharge', count: patients.filter(p => p.status === 'pending_discharge').length, color: 'bg-blue-500/10 border-blue-500/20 text-blue-400' },
+          { label: 'Discharged', count: patients.filter(p => p.status === 'discharged').length, color: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' },
+        ].map(({ label, count, color }) => (
+          <div key={label} className={`flex items-center justify-between px-4 py-3 rounded-lg border ${color}`}>
+            <span className="text-sm font-medium">{label}</span>
+            <span className="text-xl font-semibold">{count}</span>
+          </div>
+        ))}
+      </div>
+
       {/* Filters */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-md">

@@ -7,7 +7,8 @@ import {
   Settings,
   Activity,
   LogOut,
-  CheckSquare
+  CheckSquare,
+  LayoutDashboard
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -15,6 +16,7 @@ const Sidebar = ({ activeView, setActiveView, user }) => {
   const { logout } = useAuth();
 
   const navItems = [
+    { id: 'home', label: 'Home', icon: LayoutDashboard, roles: ['physician', 'nurse', 'pharmacist', 'admin'] },
     { id: 'patients', label: 'Patients', icon: Users, roles: ['physician', 'nurse', 'pharmacist', 'admin'] },
     { id: 'tasks', label: 'My Tasks', icon: CheckSquare, roles: ['physician', 'nurse', 'pharmacist', 'admin'] },
     { id: 'analytics', label: 'Analytics', icon: BarChart3, roles: ['physician', 'nurse', 'admin'] },

@@ -4,7 +4,8 @@ import {
   Loader2,
   Users,
   Shield,
-  Save
+  Save,
+  CheckCircle2
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import {
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -22,6 +24,7 @@ const AdminView = () => {
   const [loading, setLoading] = useState(true);
   const [updatingUser, setUpdatingUser] = useState(null);
   const [roleChanges, setRoleChanges] = useState({});
+  const [savedUsers, setSavedUsers] = useState({});
 
   const fetchUsers = async () => {
     try {
@@ -40,6 +43,7 @@ const AdminView = () => {
 
   const handleRoleChange = (userId, newRole) => {
     setRoleChanges({ ...roleChanges, [userId]: newRole });
+    setSavedUsers({ ...savedUsers, [userId]: false });
   };
 
   const saveRoleChange = async (userId) => {
@@ -49,11 +53,13 @@ const AdminView = () => {
     setUpdatingUser(userId);
     try {
       await axios.put(`${API}/users/${userId}/role`, { role: newRole }, { withCredentials: true });
+      toast.success('Role updated', { description: `User role has been updated to ${newRole}.` });
+      setSavedUsers({ ...savedUsers, [userId]: true });
       fetchUsers();
       setRoleChanges({ ...roleChanges, [userId]: undefined });
     } catch (error) {
       console.error('Update role error:', error);
-      alert(error.response?.data?.detail || 'Failed to update role');
+      toast.error('Failed to update role', { description: error.response?.data?.detail || 'An error occurred.' });
     } finally {
       setUpdatingUser(null);
     }
@@ -130,6 +136,7 @@ const AdminView = () => {
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
         <div className="p-4 border-b border-zinc-800">
           <h2 className="text-lg font-medium text-zinc-50">User Management</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">{users.length} total users</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -144,7 +151,7 @@ const AdminView = () => {
             </thead>
             <tbody className="divide-y divide-zinc-800">
               {users.map((u) => (
-                <tr key={u.user_id} data-testid={`user-row-${u.user_id}`} className="hover:bg-zinc-800/30">
+                <tr key={u.user_id} data-testid={`user-row-${u.user_id}`} className="hover:bg-zinc-800/30 transition-colors">
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                       {u.picture ? (
@@ -183,7 +190,7 @@ const AdminView = () => {
                     </Select>
                   </td>
                   <td className="p-4">
-                    {roleChanges[u.user_id] && roleChanges[u.user_id] !== u.role && (
+                    {roleChanges[u.user_id] && roleChanges[u.user_id] !== u.role ? (
                       <Button
                         data-testid={`save-role-${u.user_id}`}
                         size="sm"
@@ -200,7 +207,12 @@ const AdminView = () => {
                           </>
                         )}
                       </Button>
-                    )}
+                    ) : savedUsers[u.user_id] ? (
+                      <span className="flex items-center gap-1 text-emerald-400 text-xs">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Saved
+                      </span>
+                    ) : null}
                   </td>
                 </tr>
               ))}

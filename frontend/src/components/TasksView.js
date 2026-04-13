@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { 
   Loader2,
@@ -12,9 +11,12 @@ import {
   Calendar,
   GraduationCap,
   FileCheck,
-  User
+  User,
+  ArrowRight
 } from 'lucide-react';
 import { Checkbox } from '../components/ui/checkbox';
+import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -22,40 +24,62 @@ const TasksView = ({ onRefreshNotifications }) => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [allTasks, setAllTasks] = useState([]);
+  const [patientMap, setPatientMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('my'); // 'my' or 'all'
   const [updatingTask, setUpdatingTask] = useState(null);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
-      const [myRes, allRes] = await Promise.all([
+      const [myRes, allRes, patientsRes] = await Promise.all([
         axios.get(`${API}/tasks/my`, { withCredentials: true }),
-        axios.get(`${API}/tasks`, { withCredentials: true })
+        axios.get(`${API}/tasks`, { withCredentials: true }),
+        axios.get(`${API}/patients`, { withCredentials: true }),
       ]);
       setTasks(myRes.data);
       setAllTasks(allRes.data);
+      // Build patient id → name lookup
+      const map = {};
+      patientsRes.data.forEach(p => { map[p.patient_id] = p.name; });
+      setPatientMap(map);
     } catch (error) {
       console.error('Fetch tasks error:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [fetchTasks]);
 
   const handleTaskUpdate = async (taskId, newStatus) => {
     setUpdatingTask(taskId);
     try {
       await axios.put(`${API}/tasks/${taskId}`, { status: newStatus }, { withCredentials: true });
+      if (newStatus === 'completed') {
+        toast.success('Task completed', { description: 'Task has been marked as complete.' });
+      } else if (newStatus === 'in_progress') {
+        toast.info('Task in progress', { description: 'Task is now in progress.' });
+      }
       fetchTasks();
       onRefreshNotifications();
     } catch (error) {
       console.error('Update task error:', error);
+      toast.error('Failed to update task');
     } finally {
       setUpdatingTask(null);
     }
+  };
+
+  // Three-state toggle: pending → in_progress → completed → completed (locked)
+  const handleCheckboxChange = (task) => {
+    if (task.status === 'pending') {
+      handleTaskUpdate(task.task_id, 'in_progress');
+    } else if (task.status === 'in_progress') {
+      handleTaskUpdate(task.task_id, 'completed');
+    }
+    // completed is locked
   };
 
   const getCategoryIcon = (category) => {
@@ -164,6 +188,19 @@ const TasksView = ({ onRefreshNotifications }) => {
         </div>
       </div>
 
+      {/* Task legend */}
+      <div className="flex items-center gap-4 text-xs text-zinc-500">
+        <span className="flex items-center gap-1.5">
+          <Circle className="w-3 h-3 text-zinc-600" /> Pending (click once → In Progress)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <AlertCircle className="w-3 h-3 text-amber-400" /> In Progress (click again → Complete)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Completed
+        </span>
+      </div>
+
       {/* Tasks List */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg">
         {displayTasks.length === 0 ? (
@@ -178,6 +215,7 @@ const TasksView = ({ onRefreshNotifications }) => {
               const Icon = getCategoryIcon(task.category);
               const isUpdating = updatingTask === task.task_id;
               const canEdit = task.assigned_role === user?.role || user?.role === 'admin';
+              const patientName = patientMap[task.patient_id] || `Patient …${task.patient_id.slice(-6)}`;
               
               return (
                 <div
@@ -187,15 +225,21 @@ const TasksView = ({ onRefreshNotifications }) => {
                 >
                   <div className="flex items-start gap-4">
                     {canEdit ? (
-                      <Checkbox
+                      <button
                         data-testid={`task-check-${task.task_id}`}
-                        checked={task.status === 'completed'}
                         disabled={isUpdating || task.status === 'completed'}
-                        onCheckedChange={(checked) => {
-                          handleTaskUpdate(task.task_id, checked ? 'completed' : 'pending');
-                        }}
-                        className="mt-1"
-                      />
+                        onClick={() => handleCheckboxChange(task)}
+                        className="mt-1 flex-shrink-0 focus:outline-none"
+                        aria-label="Toggle task status"
+                      >
+                        {task.status === 'completed' ? (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                        ) : task.status === 'in_progress' ? (
+                          <AlertCircle className="w-5 h-5 text-amber-400" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-zinc-600 hover:text-zinc-400 transition-colors" />
+                        )}
+                      </button>
                     ) : (
                       <div className="mt-1">
                         {task.status === 'completed' ? (
@@ -216,10 +260,10 @@ const TasksView = ({ onRefreshNotifications }) => {
                         </span>
                       </div>
                       <p className="text-sm text-zinc-500">{task.description}</p>
-                      <div className="flex items-center gap-4 mt-2 text-xs">
+                      <div className="flex items-center gap-4 mt-2 text-xs flex-wrap">
                         <span className="flex items-center gap-1 text-zinc-500">
                           <User className="w-3 h-3" />
-                          Patient ID: {task.patient_id.slice(-8)}
+                          {patientName}
                         </span>
                         <span className={`px-2 py-0.5 rounded capitalize ${
                           task.assigned_role === 'physician' ? 'bg-blue-500/10 text-blue-400' :
@@ -235,11 +279,18 @@ const TasksView = ({ onRefreshNotifications }) => {
                         }`}>
                           {task.priority === 1 ? 'High' : task.priority === 2 ? 'Medium' : 'Low'}
                         </span>
+                        <span className={`px-2 py-0.5 rounded capitalize ${
+                          task.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' :
+                          task.status === 'in_progress' ? 'bg-amber-500/10 text-amber-400' :
+                          'bg-zinc-500/10 text-zinc-500'
+                        }`}>
+                          {task.status === 'in_progress' ? 'In Progress' : task.status}
+                        </span>
                       </div>
                     </div>
 
                     {isUpdating && (
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-500 flex-shrink-0" />
                     )}
                   </div>
                 </div>

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
+import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -58,10 +59,11 @@ const WorkflowView = ({ workflow: initialWorkflow, onBack, onRefreshNotification
         patient_id: workflow.patient_id,
         workflow_id: workflow.workflow_id
       }, { withCredentials: true });
+      toast.success('AI summary generated', { description: 'Discharge summary is ready for approval.' });
       fetchData();
     } catch (error) {
       console.error('Generate summary error:', error);
-      alert(error.response?.data?.detail || 'Failed to generate summary');
+      toast.error('Failed to generate summary', { description: error.response?.data?.detail || 'An error occurred.' });
     } finally {
       setGeneratingSummary(false);
     }
@@ -72,10 +74,12 @@ const WorkflowView = ({ workflow: initialWorkflow, onBack, onRefreshNotification
     setApprovingSummary(true);
     try {
       await axios.put(`${API}/ai/approve-summary/${workflow.discharge_summary.summary_id}`, {}, { withCredentials: true });
+      toast.success('Summary approved', { description: 'Discharge summary has been approved.' });
       fetchData();
       onRefreshNotifications();
     } catch (error) {
       console.error('Approve summary error:', error);
+      toast.error('Failed to approve summary');
     } finally {
       setApprovingSummary(false);
     }
@@ -85,10 +89,12 @@ const WorkflowView = ({ workflow: initialWorkflow, onBack, onRefreshNotification
     setUpdatingTask(taskId);
     try {
       await axios.put(`${API}/tasks/${taskId}`, { status: newStatus }, { withCredentials: true });
+      if (newStatus === 'completed') toast.success('Task completed!');
       fetchData();
       onRefreshNotifications();
     } catch (error) {
       console.error('Update task error:', error);
+      toast.error('Failed to update task');
     } finally {
       setUpdatingTask(null);
     }
@@ -98,11 +104,12 @@ const WorkflowView = ({ workflow: initialWorkflow, onBack, onRefreshNotification
     setCompletingWorkflow(true);
     try {
       await axios.put(`${API}/workflows/${workflow.workflow_id}/complete`, {}, { withCredentials: true });
+      toast.success('Patient discharged!', { description: 'Discharge workflow completed successfully.' });
       fetchData();
       onRefreshNotifications();
     } catch (error) {
       console.error('Complete workflow error:', error);
-      alert(error.response?.data?.detail || 'Failed to complete workflow');
+      toast.error('Cannot complete discharge', { description: error.response?.data?.detail || 'An error occurred.' });
     } finally {
       setCompletingWorkflow(false);
     }

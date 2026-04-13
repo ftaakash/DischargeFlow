@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Bell, Check, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -13,6 +13,14 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const Header = ({ user, notifications, unreadCount, onNotificationRead }) => {
   const [open, setOpen] = useState(false);
+
+  // Auto-refresh notifications every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      onNotificationRead();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [onNotificationRead]);
 
   const markAsRead = async (notificationId) => {
     try {

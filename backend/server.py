@@ -2,7 +2,8 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depend
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+from mongomock_motor import AsyncMongoMockClient
+
 import os
 import logging
 from pathlib import Path
@@ -15,13 +16,21 @@ import httpx
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# MongoDB connection (mocked)
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+client = AsyncMongoMockClient(mongo_url)
+db = client[os.environ.get('DB_NAME', 'dischargeflow')]
 
 # Create the main app
 app = FastAPI(title="DischargeFlow API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.environ.get('CORS_ORIGINS', 'http://localhost:3000')],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Create routers
 api_router = APIRouter(prefix="/api")
@@ -558,6 +567,15 @@ async def complete_workflow(
 # TASK ROUTES
 # ========================
 
+@api_router.get("/tasks/my")
+async def get_my_tasks(user: User = Depends(get_current_user)):
+    """Get tasks assigned to current user's role"""
+    tasks = await db.tasks.find({
+        "assigned_role": user.role,
+        "status": {"$ne": "completed"}
+    }, {"_id": 0}).sort("priority", 1).to_list(100)
+    return tasks
+
 @api_router.get("/tasks")
 async def get_tasks(
     role: Optional[str] = None,
@@ -572,15 +590,6 @@ async def get_tasks(
         query["status"] = status
     
     tasks = await db.tasks.find(query, {"_id": 0}).sort("priority", 1).to_list(1000)
-    return tasks
-
-@api_router.get("/tasks/my")
-async def get_my_tasks(user: User = Depends(get_current_user)):
-    """Get tasks assigned to current user's role"""
-    tasks = await db.tasks.find({
-        "assigned_role": user.role,
-        "status": {"$ne": "completed"}
-    }, {"_id": 0}).sort("priority", 1).to_list(100)
     return tasks
 
 @api_router.put("/tasks/{task_id}")
@@ -638,8 +647,11 @@ async def generate_discharge_summary(
     user: User = Depends(require_roles(["physician", "admin"]))
 ):
     """Generate AI-powered discharge summary"""
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
-    
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+    except ImportError:
+        LlmChat, UserMessage = None, None
+
     # Get patient data
     patient = await db.patients.find_one({"patient_id": req.patient_id}, {"_id": 0})
     if not patient:
