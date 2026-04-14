@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - dischargeflow-network
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - dischargeflow-network
+
+  backend:
+    build: 
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - DB_NAME=dischargeflow
+      - CORS_ORIGINS=http://localhost:3000
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - dischargeflow-network
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - dischargeflow-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  dischargeflow-network:
+    driver: bridge
