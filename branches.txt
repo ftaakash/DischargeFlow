@@ -1,0 +1,12 @@
+﻿  origin/HEAD -> origin/main
+  origin/dependabot/npm_and_yarn/frontend/eslint-10.2.0
+  origin/dependabot/npm_and_yarn/frontend/eslint-plugin-react-7.37.5
+  origin/dependabot/npm_and_yarn/frontend/eslint-plugin-react-hooks-7.0.1
+  origin/dependabot/npm_and_yarn/frontend/globals-17.5.0
+  origin/dependabot/npm_and_yarn/frontend/react-resizable-panels-4.10.0
+  origin/dependabot/pip/backend/bcrypt-5.0.0
+  origin/dependabot/pip/backend/fastapi-0.135.3
+  origin/dependabot/pip/backend/motor-3.7.1
+  origin/dependabot/pip/backend/pymongo-4.16.0
+  origin/dependabot/pip/backend/uvicorn-0.44.0
+  origin/main
