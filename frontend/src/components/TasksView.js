@@ -12,8 +12,19 @@ import {
   GraduationCap,
   FileCheck,
   User,
-  ArrowRight
+  ArrowRight,
+  Plus
 } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../components/ui/dialog';
 import { Checkbox } from '../components/ui/checkbox';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -28,6 +39,17 @@ const TasksView = ({ onRefreshNotifications }) => {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('my'); // 'my' or 'all'
   const [updatingTask, setUpdatingTask] = useState(null);
+
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [addingTask, setAddingTask] = useState(false);
+  const [newTask, setNewTask] = useState({
+    patient_id: '',
+    title: '',
+    description: '',
+    category: 'documentation',
+    assigned_role: 'nurse',
+    priority: 2
+  });
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -69,6 +91,33 @@ const TasksView = ({ onRefreshNotifications }) => {
       toast.error('Failed to update task');
     } finally {
       setUpdatingTask(null);
+    }
+  };
+
+  const handleAddTask = async () => {
+    if (!newTask.title || !newTask.patient_id) {
+      toast.error('Title and Patient are required');
+      return;
+    }
+    setAddingTask(true);
+    try {
+      await axios.post(`${API}/tasks`, newTask, { withCredentials: true });
+      setShowAddDialog(false);
+      setNewTask({
+        patient_id: '',
+        title: '',
+        description: '',
+        category: 'documentation',
+        assigned_role: 'nurse',
+        priority: 2
+      });
+      fetchTasks();
+      toast.success('Task created successfully');
+    } catch (error) {
+      console.error('Add task error:', error);
+      toast.error('Failed to add task');
+    } finally {
+      setAddingTask(false);
     }
   };
 
@@ -120,6 +169,112 @@ const TasksView = ({ onRefreshNotifications }) => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {['physician', 'nurse', 'admin'].includes(user?.role) && (
+            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+              <DialogTrigger asChild>
+                <Button 
+                  data-testid="add-task-btn"
+                  className="bg-blue-600 hover:bg-blue-500 text-white mr-2"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Task
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-zinc-900 border-zinc-800">
+                <DialogHeader>
+                  <DialogTitle className="text-zinc-50">Add New Task</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <Label htmlFor="patient" className="text-zinc-300">Patient</Label>
+                    <select
+                      id="patient"
+                      value={newTask.patient_id}
+                      onChange={(e) => setNewTask({ ...newTask, patient_id: e.target.value })}
+                      className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-md mt-1 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="" disabled>Select a patient</option>
+                      {Object.entries(patientMap).map(([id, name]) => (
+                        <option key={id} value={id}>{name} (ID: {id.slice(-6)})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="title" className="text-zinc-300">Task Title</Label>
+                    <Input
+                      id="title"
+                      value={newTask.title}
+                      onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100 mt-1"
+                      placeholder="Give meds, run tests, etc."
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="description" className="text-zinc-300">Description</Label>
+                    <Input
+                      id="description"
+                      value={newTask.description}
+                      onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100 mt-1"
+                      placeholder="Additional details..."
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="category" className="text-zinc-300">Category</Label>
+                      <select
+                        id="category"
+                        value={newTask.category}
+                        onChange={(e) => setNewTask({ ...newTask, category: e.target.value })}
+                        className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-md mt-1 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="documentation">Documentation</option>
+                        <option value="medication">Medication</option>
+                        <option value="billing">Billing</option>
+                        <option value="follow_up">Follow Up</option>
+                        <option value="education">Education</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="assigned_role" className="text-zinc-300">Assign To</Label>
+                      <select
+                        id="assigned_role"
+                        value={newTask.assigned_role}
+                        onChange={(e) => setNewTask({ ...newTask, assigned_role: e.target.value })}
+                        className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-md mt-1 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="physician">Physician</option>
+                        <option value="nurse">Nurse</option>
+                        <option value="pharmacist">Pharmacist</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="priority" className="text-zinc-300">Priority</Label>
+                    <select
+                      id="priority"
+                      value={newTask.priority}
+                      onChange={(e) => setNewTask({ ...newTask, priority: Number(e.target.value) })}
+                      className="w-full bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-md mt-1 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value={1}>High</option>
+                      <option value={2}>Medium</option>
+                      <option value={3}>Low</option>
+                    </select>
+                  </div>
+                  <Button 
+                    onClick={handleAddTask}
+                    disabled={addingTask || !newTask.title || !newTask.patient_id}
+                    className="w-full bg-blue-600 hover:bg-blue-500"
+                  >
+                    {addingTask ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Create Task
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
           <button
             data-testid="view-my-tasks"
             onClick={() => setViewMode('my')}

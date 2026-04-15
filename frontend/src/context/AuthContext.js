@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error:', error);
     }
     setUser(null);
+    window.location.href = '/login';
   };
 
   const exchangeSession = async (sessionId) => {

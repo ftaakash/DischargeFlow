@@ -19,9 +19,14 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const PatientDetails = ({ patient, onBack, onWorkflowSelect, onRefreshNotifications }) => {
   const { user } = useAuth();
+  const [localPatient, setLocalPatient] = useState(patient);
   const [workflow, setWorkflow] = useState(null);
   const [loading, setLoading] = useState(true);
   const [initiating, setInitiating] = useState(false);
+
+  useEffect(() => {
+    setLocalPatient(patient);
+  }, [patient]);
 
   const fetchWorkflow = async () => {
     try {
@@ -41,7 +46,7 @@ const PatientDetails = ({ patient, onBack, onWorkflowSelect, onRefreshNotificati
   const handleInitiateDischarge = async () => {
     setInitiating(true);
     try {
-      const res = await axios.post(`${API}/workflows/initiate/${patient.patient_id}`, {}, { withCredentials: true });
+      const res = await axios.post(`${API}/workflows/initiate/${localPatient.patient_id}`, {}, { withCredentials: true });
       setWorkflow(res.data.workflow);
       onRefreshNotifications();
     } catch (error) {
@@ -70,7 +75,21 @@ const PatientDetails = ({ patient, onBack, onWorkflowSelect, onRefreshNotificati
     );
   };
 
-  const canInitiateDischarge = ['physician', 'admin'].includes(user?.role) && patient.status === 'admitted';
+  const handleStatusChange = async (newStatus) => {
+    const backup = localPatient.status;
+    try {
+      setLocalPatient({ ...localPatient, status: newStatus });
+      await axios.put(`${API}/patients/${localPatient.patient_id}`, { status: newStatus }, { withCredentials: true });
+      onRefreshNotifications();
+    } catch (error) {
+      console.error('Update status error:', error);
+      setLocalPatient({ ...localPatient, status: backup });
+      alert('Failed to update status');
+    }
+  };
+
+  const canEditStatus = ['physician', 'nurse', 'admin'].includes(user?.role);
+  const canInitiateDischarge = ['physician', 'admin'].includes(user?.role) && localPatient.status === 'admitted';
 
   return (
     <div className="space-y-6">
@@ -94,11 +113,23 @@ const PatientDetails = ({ patient, onBack, onWorkflowSelect, onRefreshNotificati
             </div>
             <div>
               <h1 className="text-2xl font-semibold text-zinc-50" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                {patient.name}
+                {localPatient.name}
               </h1>
-              <p className="text-sm text-zinc-500 mt-1">Patient ID: {patient.patient_id}</p>
+              <p className="text-sm text-zinc-500 mt-1">Patient ID: {localPatient.patient_id}</p>
               <div className="mt-2">
-                {getStatusBadge(patient.status)}
+                {canEditStatus ? (
+                  <select
+                    value={localPatient.status}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    className="bg-zinc-800 text-zinc-100 text-sm rounded border border-zinc-700 px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="admitted">Admitted</option>
+                    <option value="pending_discharge">Pending Discharge</option>
+                    <option value="discharged">Discharged</option>
+                  </select>
+                ) : (
+                  getStatusBadge(localPatient.status)
+                )}
               </div>
             </div>
           </div>
@@ -230,7 +261,7 @@ const PatientDetails = ({ patient, onBack, onWorkflowSelect, onRefreshNotificati
             View Full Workflow
           </Button>
         </div>
-      ) : patient.status === 'admitted' ? (
+      ) : localPatient.status === 'admitted' ? (
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-8 text-center">
           <ClipboardList className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
           <p className="text-zinc-400 mb-2">No discharge workflow initiated</p>

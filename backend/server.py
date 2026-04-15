@@ -117,6 +117,14 @@ class TaskUpdate(BaseModel):
     status: Optional[str] = None
     assigned_to: Optional[str] = None
 
+class TaskCreate(BaseModel):
+    patient_id: str
+    title: str
+    description: str
+    category: str
+    assigned_role: str
+    priority: int = 2
+
 class DischargeSummary(BaseModel):
     summary_id: str = Field(default_factory=lambda: f"sum_{uuid.uuid4().hex[:12]}")
     workflow_id: str
@@ -575,6 +583,42 @@ async def complete_workflow(
 # ========================
 # TASK ROUTES
 # ========================
+
+@api_router.post("/tasks")
+async def create_task(
+    task_data: TaskCreate,
+    user: User = Depends(require_roles(["physician", "nurse", "admin"]))
+):
+    """Create a new manual task"""
+    import uuid
+    workflow = await db.workflows.find_one({
+        "patient_id": task_data.patient_id,
+        "status": {"$in": ["in_progress", "pending_approval"]}
+    })
+    workflow_id = workflow["workflow_id"] if workflow else f"wf_manual_{uuid.uuid4().hex[:8]}"
+    
+    task = Task(
+        workflow_id=workflow_id,
+        patient_id=task_data.patient_id,
+        title=task_data.title,
+        description=task_data.description,
+        category=task_data.category,
+        assigned_role=task_data.assigned_role,
+        priority=task_data.priority
+    )
+    task_doc = task.model_dump()
+    task_doc["created_at"] = task_doc["created_at"].isoformat()
+    response_doc = task_doc.copy()
+    await db.tasks.insert_one(task_doc)
+    
+    # If a workflow was pending approval but we added a task, shift it back to in_progress
+    if workflow and workflow["status"] == "pending_approval":
+        await db.workflows.update_one(
+            {"workflow_id": workflow_id},
+            {"$set": {"status": "in_progress"}}
+        )
+        
+    return response_doc
 
 @api_router.get("/tasks/my")
 async def get_my_tasks(user: User = Depends(get_current_user)):
