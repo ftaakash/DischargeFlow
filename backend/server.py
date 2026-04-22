@@ -1193,6 +1193,8 @@ def _parse_chatbot_intent(message: str):
         return "analytics"
     elif any(k in msg for k in ["claims", "insurance", "billing"]):
         return "list_claims"
+    elif any(k in msg for k in ["submit claim", "new claim", "file claim", "submit new claim"]):
+        return "submit_claim"
     else:
         return "unknown"
 
@@ -1275,6 +1277,101 @@ async def chatbot_message(req: ChatRequest, request: Request, user: User = Depen
                 "Diagnosis: Pneumonia\n"
                 "Physician: Dr. Smith"
             )
+    elif intent == "submit_claim":
+        lines = [line.strip() for line in req.message.split('\n') if line.strip()]
+        
+        claim_data = {
+            "patient": "", "insurer_name": "", "policy_number": "",
+            "billed_amount": "", "diagnosis_codes": "", "procedure_codes": ""
+        }
+        
+        current_key = None
+        for line in lines:
+            line_lower = line.lower()
+            if "patient" in line_lower and "select" not in line_lower:
+                if ":" in line:
+                    claim_data["patient"] = line.split(":", 1)[1].strip()
+                    current_key = None
+                else:
+                    current_key = "patient"
+            elif "insurer name" in line_lower:
+                if ":" in line:
+                    claim_data["insurer_name"] = line.split(":", 1)[1].strip()
+                    current_key = None
+                else:
+                    current_key = "insurer_name"
+            elif "policy number" in line_lower:
+                if ":" in line:
+                    claim_data["policy_number"] = line.split(":", 1)[1].strip()
+                    current_key = None
+                else:
+                    current_key = "policy_number"
+            elif "billed amount" in line_lower:
+                if ":" in line:
+                    claim_data["billed_amount"] = line.split(":", 1)[1].strip()
+                    current_key = None
+                else:
+                    current_key = "billed_amount"
+            elif "diagnosis codes" in line_lower or "icd" in line_lower:
+                if ":" in line:
+                    claim_data["diagnosis_codes"] = line.split(":", 1)[1].strip()
+                    current_key = None
+                else:
+                    current_key = "diagnosis_codes"
+            elif "procedure codes" in line_lower or "cpt" in line_lower:
+                if ":" in line:
+                    claim_data["procedure_codes"] = line.split(":", 1)[1].strip()
+                    current_key = None
+                else:
+                    current_key = "procedure_codes"
+            else:
+                if current_key and "e.g." not in line_lower and "select" not in line_lower and line_lower != "*":
+                    line_clean = line.replace("*", "").strip()
+                    if line_clean:
+                        claim_data[current_key] = line_clean
+                        current_key = None
+                        
+        if claim_data["insurer_name"] and claim_data["billed_amount"]:
+            try:
+                billed = float(claim_data["billed_amount"].replace("$", "").replace(",", ""))
+            except ValueError:
+                billed = 0.0
+                
+            diag_codes = [c.strip() for c in claim_data["diagnosis_codes"].split(",")] if claim_data["diagnosis_codes"] else []
+            proc_codes = [c.strip() for c in claim_data["procedure_codes"].split(",")] if claim_data["procedure_codes"] else []
+            
+            patient_id = "pat_unknown"
+            if claim_data["patient"]:
+                patient_match = await db.patients.find_one({"name": {"$regex": claim_data["patient"], "$options": "i"}})
+                if patient_match:
+                    patient_id = patient_match["patient_id"]
+                else:
+                    first_pat = await db.patients.find_one({})
+                    if first_pat:
+                        patient_id = first_pat["patient_id"]
+
+            new_claim = {
+                "claim_id": f"clm_{uuid.uuid4().hex[:12]}",
+                "patient_id": patient_id,
+                "insurer_name": claim_data["insurer_name"],
+                "policy_number": claim_data["policy_number"],
+                "diagnosis_codes": diag_codes,
+                "procedure_codes": proc_codes,
+                "billed_amount": billed,
+                "status": "pending",
+                "created_by": user.user_id,
+                "submitted_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.insurance_claims.insert_one(new_claim)
+            if "_id" in new_claim:
+                del new_claim["_id"]
+                
+            result["response"] = f"✅ Successfully submitted new claim to {new_claim['insurer_name']} for ${billed:,.2f}."
+            result["data"] = {"claims": [new_claim]}
+        else:
+            result["response"] = "Please provide the minimum claim details (Insurer Name, Billed Amount, etc.)"
     elif intent == "list_patients":
         patients = await db.patients.find({}, {"_id": 0}).to_list(50)
         names = [p["name"] for p in patients]
