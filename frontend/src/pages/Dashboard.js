@@ -9,6 +9,8 @@ import WorkflowView from '../components/WorkflowView';
 import TasksView from '../components/TasksView';
 import AnalyticsView from '../components/AnalyticsView';
 import AdminView from '../components/AdminView';
+import InsuranceView from '../components/InsuranceView';
+import ChatbotView from '../components/ChatbotView';
 import axios from 'axios';
 import { Loader2 } from 'lucide-react';
 
@@ -100,6 +102,10 @@ const Dashboard = () => {
         return <TasksView onRefreshNotifications={fetchNotifications} />;
       case 'analytics':
         return <AnalyticsView />;
+      case 'insurance':
+        return <InsuranceView />;
+      case 'chatbot':
+        return <ChatbotView />;
       case 'admin':
         return <AdminView />;
       default:

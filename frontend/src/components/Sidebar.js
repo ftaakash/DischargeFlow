@@ -8,7 +8,9 @@ import {
   Activity,
   LogOut,
   CheckSquare,
-  LayoutDashboard
+  LayoutDashboard,
+  DollarSign,
+  Bot
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
@@ -16,11 +18,13 @@ const Sidebar = ({ activeView, setActiveView, user }) => {
   const { logout } = useAuth();
 
   const navItems = [
-    { id: 'home', label: 'Home', icon: LayoutDashboard, roles: ['physician', 'nurse', 'pharmacist', 'admin'] },
-    { id: 'patients', label: 'Patients', icon: Users, roles: ['physician', 'nurse', 'pharmacist', 'admin'] },
-    { id: 'tasks', label: 'My Tasks', icon: CheckSquare, roles: ['physician', 'nurse', 'pharmacist', 'admin'] },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, roles: ['physician', 'nurse', 'admin'] },
-    { id: 'admin', label: 'Admin', icon: Settings, roles: ['admin'] },
+    { id: 'home',      label: 'Home',      icon: LayoutDashboard, roles: ['physician', 'nurse', 'pharmacist', 'admin'] },
+    { id: 'patients',  label: 'Patients',  icon: Users,           roles: ['physician', 'nurse', 'pharmacist', 'admin'] },
+    { id: 'tasks',     label: 'My Tasks',  icon: CheckSquare,     roles: ['physician', 'nurse', 'pharmacist', 'admin'] },
+    { id: 'insurance', label: 'Insurance', icon: DollarSign,      roles: ['physician', 'nurse', 'pharmacist', 'admin'] },
+    { id: 'chatbot',   label: 'AI Assistant', icon: Bot,          roles: ['physician', 'nurse', 'pharmacist', 'admin'] },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3,       roles: ['physician', 'nurse', 'admin'] },
+    { id: 'admin',     label: 'Admin',     icon: Settings,        roles: ['admin'] },
   ];
 
   const filteredNavItems = navItems.filter(item => 

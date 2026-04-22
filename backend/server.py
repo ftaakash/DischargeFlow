@@ -49,6 +49,9 @@ workflows_router = APIRouter(prefix="/workflows", tags=["Workflows"])
 notifications_router = APIRouter(prefix="/notifications", tags=["Notifications"])
 analytics_router = APIRouter(prefix="/analytics", tags=["Analytics"])
 ai_router = APIRouter(prefix="/ai", tags=["AI"])
+insurance_router = APIRouter(prefix="/insurance", tags=["Insurance"])
+chatbot_router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
+audit_router = APIRouter(prefix="/audit", tags=["Audit"])
 
 # ========================
 # MODELS
@@ -152,6 +155,71 @@ class RoleUpdate(BaseModel):
 class GenerateSummaryRequest(BaseModel):
     patient_id: str
     workflow_id: str
+
+# ========================
+# INSURANCE MODELS
+# ========================
+
+class InsuranceClaim(BaseModel):
+    claim_id: str = Field(default_factory=lambda: f"clm_{uuid.uuid4().hex[:12]}")
+    patient_id: str
+    insurer_name: str
+    policy_number: str
+    diagnosis_codes: List[str] = []
+    procedure_codes: List[str] = []
+    billed_amount: float
+    allowed_amount: Optional[float] = None
+    paid_amount: Optional[float] = None
+    status: str = "pending"  # pending, submitted, accepted, denied, paid
+    denial_reason: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    created_by: str = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class InsuranceClaimCreate(BaseModel):
+    patient_id: str
+    insurer_name: str
+    policy_number: str
+    diagnosis_codes: List[str] = []
+    procedure_codes: List[str] = []
+    billed_amount: float
+
+class ClaimStatusUpdate(BaseModel):
+    status: str
+    allowed_amount: Optional[float] = None
+    paid_amount: Optional[float] = None
+    denial_reason: Optional[str] = None
+
+# ========================
+# CHATBOT MODELS
+# ========================
+
+class ChatMessage(BaseModel):
+    role: str  # user | assistant
+    content: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ChatRequest(BaseModel):
+    message: str
+
+# ========================
+# AUDIT MODELS
+# ========================
+
+class AuditLog(BaseModel):
+    log_id: str = Field(default_factory=lambda: f"log_{uuid.uuid4().hex[:12]}")
+    user_id: str
+    user_name: str
+    action: str
+    resource_type: str
+    resource_id: Optional[str] = None
+    details: Optional[str] = None
+    ip_address: Optional[str] = None
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ConsentUpdate(BaseModel):
+    gdpr_consent: bool
 
 # ========================
 # AUTH HELPERS
@@ -1003,6 +1071,259 @@ async def seed_data():
     return {"message": "Data seeded successfully", "patients": len(patients)}
 
 # ========================
+# INSURANCE ROUTES
+# ========================
+
+async def _write_audit(db, user: User, action: str, resource_type: str, resource_id: str = None, details: str = None, request: Request = None):
+    log = {
+        "log_id": f"log_{uuid.uuid4().hex[:12]}",
+        "user_id": user.user_id,
+        "user_name": user.name,
+        "action": action,
+        "resource_type": resource_type,
+        "resource_id": resource_id,
+        "details": details,
+        "ip_address": request.client.host if request else None,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    await db.audit_logs.insert_one(log)
+
+@insurance_router.post("/claims")
+async def create_claim(claim_data: InsuranceClaimCreate, request: Request, user: User = Depends(get_current_user)):
+    patient = await db.patients.find_one({"patient_id": claim_data.patient_id}, {"_id": 0})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    claim = InsuranceClaim(
+        **claim_data.dict(),
+        created_by=user.user_id,
+        submitted_at=datetime.now(timezone.utc)
+    )
+    claim_doc = claim.dict()
+    claim_doc["submitted_at"] = claim_doc["submitted_at"].isoformat()
+    claim_doc["created_at"] = claim_doc["created_at"].isoformat()
+    claim_doc["updated_at"] = claim_doc["updated_at"].isoformat()
+    await db.insurance_claims.insert_one(claim_doc)
+    await _write_audit(db, user, "CREATE_CLAIM", "insurance_claim", claim.claim_id, f"Billed: ${claim_data.billed_amount}", request)
+    return {"claim_id": claim.claim_id, "status": "pending", "message": "Claim submitted successfully"}
+
+@insurance_router.get("/claims")
+async def get_claims(patient_id: Optional[str] = None, status: Optional[str] = None, user: User = Depends(get_current_user)):
+    query = {}
+    if patient_id:
+        query["patient_id"] = patient_id
+    if status:
+        query["status"] = status
+    claims = await db.insurance_claims.find(query, {"_id": 0}).to_list(200)
+    return claims
+
+@insurance_router.get("/claims/{claim_id}")
+async def get_claim(claim_id: str, user: User = Depends(get_current_user)):
+    claim = await db.insurance_claims.find_one({"claim_id": claim_id}, {"_id": 0})
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+    return claim
+
+@insurance_router.put("/claims/{claim_id}/status")
+async def update_claim_status(claim_id: str, update: ClaimStatusUpdate, request: Request, user: User = Depends(get_current_user)):
+    claim = await db.insurance_claims.find_one({"claim_id": claim_id}, {"_id": 0})
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+    update_doc = {"status": update.status, "updated_at": datetime.now(timezone.utc).isoformat()}
+    if update.allowed_amount is not None:
+        update_doc["allowed_amount"] = update.allowed_amount
+    if update.paid_amount is not None:
+        update_doc["paid_amount"] = update.paid_amount
+    if update.denial_reason:
+        update_doc["denial_reason"] = update.denial_reason
+    await db.insurance_claims.update_one({"claim_id": claim_id}, {"$set": update_doc})
+    await _write_audit(db, user, "UPDATE_CLAIM_STATUS", "insurance_claim", claim_id, f"Status → {update.status}", request)
+    return {"message": "Claim status updated"}
+
+@insurance_router.get("/reports")
+async def get_insurance_reports(user: User = Depends(get_current_user)):
+    claims = await db.insurance_claims.find({}, {"_id": 0}).to_list(1000)
+    total_billed = sum(c.get("billed_amount", 0) for c in claims)
+    total_paid = sum(c.get("paid_amount", 0) for c in claims if c.get("paid_amount"))
+    total_allowed = sum(c.get("allowed_amount", 0) for c in claims if c.get("allowed_amount"))
+    denied = [c for c in claims if c.get("status") == "denied"]
+    pending = [c for c in claims if c.get("status") == "pending"]
+    accepted = [c for c in claims if c.get("status") in ["accepted", "paid"]]
+    by_insurer = {}
+    for c in claims:
+        insurer = c.get("insurer_name", "Unknown")
+        by_insurer.setdefault(insurer, {"count": 0, "billed": 0, "paid": 0})
+        by_insurer[insurer]["count"] += 1
+        by_insurer[insurer]["billed"] += c.get("billed_amount", 0)
+        by_insurer[insurer]["paid"] += c.get("paid_amount") or 0
+    return {
+        "total_claims": len(claims),
+        "total_billed": round(total_billed, 2),
+        "total_paid": round(total_paid, 2),
+        "total_allowed": round(total_allowed, 2),
+        "denial_rate": round(len(denied) / len(claims) * 100, 1) if claims else 0,
+        "pending_count": len(pending),
+        "accepted_count": len(accepted),
+        "denied_count": len(denied),
+        "by_insurer": [{
+            "insurer": k,
+            "count": v["count"],
+            "billed": round(v["billed"], 2),
+            "paid": round(v["paid"], 2)
+        } for k, v in by_insurer.items()]
+    }
+
+# ========================
+# CHATBOT ROUTES
+# ========================
+
+def _parse_chatbot_intent(message: str):
+    """Simple intent parser that maps NL to API actions"""
+    msg = message.lower().strip()
+    if any(k in msg for k in ["create patient", "add patient", "new patient"]):
+        return "create_patient"
+    elif any(k in msg for k in ["list patients", "show patients", "all patients"]):
+        return "list_patients"
+    elif any(k in msg for k in ["my tasks", "list tasks", "show tasks"]):
+        return "list_tasks"
+    elif any(k in msg for k in ["help", "what can you do", "commands"]):
+        return "help"
+    elif any(k in msg for k in ["analytics", "stats", "statistics", "dashboard stats"]):
+        return "analytics"
+    elif any(k in msg for k in ["claims", "insurance", "billing"]):
+        return "list_claims"
+    else:
+        return "unknown"
+
+@chatbot_router.post("/message")
+async def chatbot_message(req: ChatRequest, request: Request, user: User = Depends(get_current_user)):
+    intent = _parse_chatbot_intent(req.message)
+    result = {"intent": intent, "message": req.message, "response": "", "data": None}
+
+    if intent == "create_patient":
+        result["response"] = (
+            "To create a patient, please use the Patients section in the sidebar. "
+            "You can click '+ Add Patient' to fill out the admission form directly. "
+            "I can guide you through it!"
+        )
+    elif intent == "list_patients":
+        patients = await db.patients.find({}, {"_id": 0}).to_list(50)
+        names = [p["name"] for p in patients]
+        result["response"] = f"There are {len(patients)} patients currently in the system: {', '.join(names[:5])}{'...' if len(names) > 5 else '.'}"
+        result["data"] = {"count": len(patients), "patients": patients[:5]}
+    elif intent == "list_tasks":
+        tasks = await db.tasks.find({"assigned_to": user.user_id}, {"_id": 0}).to_list(20)
+        if tasks:
+            result["response"] = f"You have {len(tasks)} assigned task(s). First task: '{tasks[0]['title']}' — Status: {tasks[0]['status']}."
+        else:
+            result["response"] = "You have no tasks currently assigned to you."
+        result["data"] = {"tasks": tasks}
+    elif intent == "analytics":
+        claims = await db.insurance_claims.find({}, {"_id": 0}).to_list(1000)
+        patients = await db.patients.find({}, {"_id": 0}).to_list(200)
+        result["response"] = (
+            f"System snapshot: {len(patients)} patients, {len(claims)} insurance claims, "
+            f"${sum(c.get('billed_amount', 0) for c in claims):,.2f} total billed."
+        )
+    elif intent == "list_claims":
+        claims = await db.insurance_claims.find({}, {"_id": 0}).to_list(50)
+        result["response"] = f"There are {len(claims)} insurance claims. Navigate to 💰 Insurance to view and manage them."
+        result["data"] = {"count": len(claims)}
+    elif intent == "help":
+        result["response"] = (
+            "I can help you with the following:\n"
+            "• **List patients** — show all current patients\n"
+            "• **My tasks** — view your assigned tasks\n"
+            "• **Analytics** — get a quick system snapshot\n"
+            "• **Insurance/Claims** — check insurance claim status\n"
+            "• **Create patient** — guide you to admission form"
+        )
+    else:
+        result["response"] = (
+            "I didn't quite understand that. Try asking me to 'list patients', 'show my tasks', "
+            "or type 'help' to see what I can do."
+        )
+
+    # Write audit log for every chatbot interaction
+    await _write_audit(db, user, f"CHATBOT_{intent.upper()}", "chatbot", None, req.message[:200], request)
+    return result
+
+# ========================
+# AUDIT ROUTES
+# ========================
+
+@audit_router.get("/logs")
+async def get_audit_logs(
+    limit: int = 50,
+    resource_type: Optional[str] = None,
+    user_id: Optional[str] = None,
+    user: User = Depends(require_roles(["admin"]))
+):
+    query = {}
+    if resource_type:
+        query["resource_type"] = resource_type
+    if user_id:
+        query["user_id"] = user_id
+    logs = await db.audit_logs.find(query, {"_id": 0}).to_list(limit)
+    logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+    return logs
+
+@audit_router.get("/patients/{patient_id}")
+async def get_patient_audit_trail(patient_id: str, user: User = Depends(require_roles(["admin", "physician"]))):
+    logs = await db.audit_logs.find({"resource_id": patient_id}, {"_id": 0}).to_list(100)
+    return logs
+
+# ========================
+# GDPR / CONSENT ROUTES (mounted on patients_router)
+# ========================
+
+@patients_router.post("/{patient_id}/consent")
+async def update_patient_consent(patient_id: str, body: ConsentUpdate, request: Request, user: User = Depends(get_current_user)):
+    patient = await db.patients.find_one({"patient_id": patient_id}, {"_id": 0})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    await db.patients.update_one({"patient_id": patient_id}, {"$set": {"gdpr_consent": body.gdpr_consent, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    await _write_audit(db, user, "UPDATE_CONSENT", "patient", patient_id, f"GDPR consent → {body.gdpr_consent}", request)
+    return {"message": "Consent updated", "gdpr_consent": body.gdpr_consent}
+
+@patients_router.delete("/{patient_id}/data")
+async def delete_patient_data(patient_id: str, request: Request, user: User = Depends(require_roles(["admin"]))):
+    """GDPR Right-to-erasure: anonymize patient data"""
+    patient = await db.patients.find_one({"patient_id": patient_id}, {"_id": 0})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    anonymized = {
+        "name": "[REDACTED]",
+        "date_of_birth": "[REDACTED]",
+        "diagnosis": "[REDACTED]",
+        "attending_physician": "[REDACTED]",
+        "gdpr_erased": True,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.patients.update_one({"patient_id": patient_id}, {"$set": anonymized})
+    await _write_audit(db, user, "GDPR_ERASURE", "patient", patient_id, "Patient data anonymized per GDPR request", request)
+    return {"message": "Patient data erased per GDPR right-to-be-forgotten"}
+
+# ========================
+# HEALTH / METRICS
+# ========================
+
+@api_router.get("/health")
+async def health_check():
+    patient_count = await db.patients.count_documents({})
+    claim_count = await db.insurance_claims.count_documents({})
+    log_count = await db.audit_logs.count_documents({})
+    return {
+        "status": "healthy",
+        "version": "2.0.0",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "metrics": {
+            "patients": patient_count,
+            "insurance_claims": claim_count,
+            "audit_logs": log_count
+        }
+    }
+
+# ========================
 # ROUTER SETUP
 # ========================
 
@@ -1012,6 +1333,9 @@ api_router.include_router(workflows_router)
 api_router.include_router(notifications_router)
 api_router.include_router(analytics_router)
 api_router.include_router(ai_router)
+api_router.include_router(insurance_router)
+api_router.include_router(chatbot_router)
+api_router.include_router(audit_router)
 
 app.include_router(api_router)
 
