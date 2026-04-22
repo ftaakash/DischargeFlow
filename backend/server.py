@@ -1262,6 +1262,8 @@ async def chatbot_message(req: ChatRequest, request: Request, user: User = Depen
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
             await db.tasks.insert_one(new_task)
+            if "_id" in new_task:
+                del new_task["_id"]
             result["response"] = f"✅ Created new task '{title}' for {role} (Patient: {selected_patient['name']})."
             result["data"] = {"tasks": [new_task]}
         else:
