@@ -29,7 +29,7 @@ import { Checkbox } from '../components/ui/checkbox';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 
 const TasksView = ({ onRefreshNotifications }) => {
   const { user } = useAuth();

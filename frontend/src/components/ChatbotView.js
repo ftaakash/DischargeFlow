@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Bot, Send, User, Sparkles, RefreshCw } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 
 const QUICK_COMMANDS = [
   'List patients',
@@ -55,11 +55,19 @@ const ChatbotView = () => {
         timestamp: new Date(),
       }]);
     } catch (err) {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: "I'm having trouble connecting to the backend. Please check your connection and try again.",
-        timestamp: new Date(),
-      }]);
+      if (err.response && err.response.status === 401) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: "Your session has expired or you are not authenticated. Please refresh the page to log in again.",
+          timestamp: new Date(),
+        }]);
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: "I'm having trouble connecting to the backend. Please check your connection and try again.",
+          timestamp: new Date(),
+        }]);
+      }
     } finally {
       setLoading(false);
     }

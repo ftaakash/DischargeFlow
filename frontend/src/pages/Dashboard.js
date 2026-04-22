@@ -14,7 +14,7 @@ import ChatbotView from '../components/ChatbotView';
 import axios from 'axios';
 import { Loader2 } from 'lucide-react';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 
 const Dashboard = () => {
   const { user } = useAuth();

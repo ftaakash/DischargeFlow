@@ -25,7 +25,7 @@ import {
   Legend,
 } from 'recharts';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 
 // Simulated weekly discharge trend for chart
 const weeklyData = [

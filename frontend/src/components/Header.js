@@ -9,7 +9,7 @@ import {
 } from '../components/ui/popover';
 import axios from 'axios';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 
 const Header = ({ user, notifications, unreadCount, onNotificationRead }) => {
   const [open, setOpen] = useState(false);
