@@ -1185,6 +1185,8 @@ def _parse_chatbot_intent(message: str):
         return "list_patients"
     elif any(k in msg for k in ["my tasks", "list tasks", "show tasks"]):
         return "list_tasks"
+    elif any(k in msg for k in ["create task", "add task", "new task", "assign task", "create a task"]):
+        return "create_task"
     elif any(k in msg for k in ["help", "what can you do", "commands"]):
         return "help"
     elif any(k in msg for k in ["analytics", "stats", "statistics", "dashboard stats"]):
@@ -1217,6 +1219,53 @@ async def chatbot_message(req: ChatRequest, request: Request, user: User = Depen
         else:
             result["response"] = "You have no tasks currently assigned to you."
         result["data"] = {"tasks": tasks}
+    elif intent == "create_task":
+        import re
+        msg_lower = req.message.lower()
+        
+        # Try to find a role
+        role = "nurse"
+        if "physician" in msg_lower or "doctor" in msg_lower:
+            role = "physician"
+        elif "pharmacist" in msg_lower or "pharmacy" in msg_lower:
+            role = "pharmacist"
+            
+        # Try to extract the action after "to"
+        title = "New task"
+        to_idx = msg_lower.find(" to ")
+        if to_idx != -1:
+            title = req.message[to_idx+4:].strip().capitalize()
+            
+        # Find patient (e.g. "patient 1")
+        patients = await db.patients.find({}, {"_id": 0}).to_list(20)
+        selected_patient = patients[0] if patients else None
+        
+        match = re.search(r'patient\s*(\d+)', msg_lower)
+        if match and patients:
+            idx = int(match.group(1)) - 1
+            if 0 <= idx < len(patients):
+                selected_patient = patients[idx]
+        
+        if selected_patient:
+            new_task = {
+                "task_id": f"tsk_{uuid.uuid4().hex[:12]}",
+                "patient_id": selected_patient["patient_id"],
+                "title": title,
+                "description": req.message,
+                "status": "pending",
+                "priority": "medium",
+                "assigned_role": role,
+                "assigned_to": None,
+                "workflow_id": None,
+                "created_by": user.user_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.tasks.insert_one(new_task)
+            result["response"] = f"✅ Created new task '{title}' for {role} (Patient: {selected_patient['name']})."
+            result["data"] = {"tasks": [new_task]}
+        else:
+            result["response"] = "Could not find any patients to assign this task to."
     elif intent == "analytics":
         claims = await db.insurance_claims.find({}, {"_id": 0}).to_list(1000)
         patients = await db.patients.find({}, {"_id": 0}).to_list(200)
@@ -1235,6 +1284,7 @@ async def chatbot_message(req: ChatRequest, request: Request, user: User = Depen
             "• **My tasks** — view your assigned tasks\n"
             "• **Analytics** — get a quick system snapshot\n"
             "• **Insurance/Claims** — check insurance claim status\n"
+            "• **Create task** — e.g. 'create a task for patient 1 to give meds'\n"
             "• **Create patient** — guide you to admission form"
         )
     else:
