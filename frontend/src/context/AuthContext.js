@@ -5,12 +5,22 @@ const AuthContext = createContext(null);
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 
+// Global axios interceptor for manual Bearer token transmission fallback
+axios.interceptors.request.use(config => {
+  const token = localStorage.getItem('session_token');
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const checkAuth = useCallback(async () => {
     try {
+      const token = localStorage.getItem('session_token');
       const response = await axios.get(`${API}/auth/me`, {
         withCredentials: true
       });
@@ -18,6 +28,7 @@ export const AuthProvider = ({ children }) => {
       return response.data;
     } catch (error) {
       setUser(null);
+      localStorage.removeItem('session_token');
       return null;
     } finally {
       setLoading(false);
@@ -46,6 +57,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     }
+    localStorage.removeItem('session_token');
     setUser(null);
     window.location.href = '/login';
   };
@@ -56,6 +68,9 @@ export const AuthProvider = ({ children }) => {
         { session_id: sessionId },
         { withCredentials: true }
       );
+      if (response.data.token) {
+        localStorage.setItem('session_token', response.data.token);
+      }
       setUser(response.data.user);
       return response.data.user;
     } catch (error) {

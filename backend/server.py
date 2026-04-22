@@ -401,7 +401,7 @@ async def create_session(request: Request, response: Response):
     # Get updated user
     user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     
-    return {"success": True, "user": user_doc}
+    return {"success": True, "token": session_token, "user": user_doc}
 
 @auth_router.get("/me")
 async def get_me(user: User = Depends(get_current_user)):
