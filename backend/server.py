@@ -1202,11 +1202,79 @@ async def chatbot_message(req: ChatRequest, request: Request, user: User = Depen
     result = {"intent": intent, "message": req.message, "response": "", "data": None}
 
     if intent == "create_patient":
-        result["response"] = (
-            "To create a patient, please use the Patients section in the sidebar. "
-            "You can click '+ Add Patient' to fill out the admission form directly. "
-            "I can guide you through it!"
-        )
+        lines = [line.strip() for line in req.message.split('\n') if line.strip()]
+        
+        patient_data = {
+            "name": "", "date_of_birth": "", "admission_date": "",
+            "room_number": "", "diagnosis": "", "attending_physician": ""
+        }
+        
+        current_key = None
+        for line in lines:
+            line_lower = line.lower()
+            if "name" in line_lower and "patient" in line_lower:
+                current_key = "name"
+                if ":" in line:
+                    patient_data["name"] = line.split(":", 1)[1].strip()
+                    current_key = None
+            elif "date of birth" in line_lower or "dob" in line_lower:
+                current_key = "date_of_birth"
+                if ":" in line:
+                    patient_data["date_of_birth"] = line.split(":", 1)[1].strip()
+                    current_key = None
+            elif "admission date" in line_lower or "admission" in line_lower:
+                current_key = "admission_date"
+                if ":" in line:
+                    patient_data["admission_date"] = line.split(":", 1)[1].strip()
+                    current_key = None
+            elif "room number" in line_lower or "room" in line_lower:
+                current_key = "room_number"
+                if ":" in line:
+                    patient_data["room_number"] = line.split(":", 1)[1].strip()
+                    current_key = None
+            elif "diagnosis" in line_lower:
+                current_key = "diagnosis"
+                if ":" in line:
+                    patient_data["diagnosis"] = line.split(":", 1)[1].strip()
+                    current_key = None
+            elif "physician" in line_lower or "doctor" in line_lower:
+                current_key = "attending_physician"
+                if ":" in line:
+                    patient_data["attending_physician"] = line.split(":", 1)[1].strip()
+                    current_key = None
+            else:
+                if current_key:
+                    patient_data[current_key] = line
+                    current_key = None
+                    
+        if patient_data["name"] and patient_data["diagnosis"]:
+            new_patient = {
+                "patient_id": f"pat_{uuid.uuid4().hex[:12]}",
+                "name": patient_data["name"],
+                "date_of_birth": patient_data["date_of_birth"] or "Unknown",
+                "admission_date": patient_data["admission_date"] or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "room_number": patient_data["room_number"] or "TBD",
+                "diagnosis": patient_data["diagnosis"],
+                "attending_physician": patient_data["attending_physician"] or "Unassigned",
+                "status": "admitted",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.patients.insert_one(new_patient)
+            if "_id" in new_patient:
+                del new_patient["_id"]
+            result["response"] = f"✅ Successfully admitted patient {new_patient['name']} to room {new_patient['room_number']}."
+            result["data"] = {"patients": [new_patient]}
+        else:
+            result["response"] = (
+                "Please provide patient details in a structured format:\n"
+                "Patient Name: John Doe\n"
+                "DOB: 12/05/1980\n"
+                "Admission Date: 20/01/2026\n"
+                "Room: 101A\n"
+                "Diagnosis: Pneumonia\n"
+                "Physician: Dr. Smith"
+            )
     elif intent == "list_patients":
         patients = await db.patients.find({}, {"_id": 0}).to_list(50)
         names = [p["name"] for p in patients]
