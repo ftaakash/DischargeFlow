@@ -25,6 +25,15 @@ const AuthCallback = () => {
         return;
       }
 
+      // Safeguard against React StrictMode Double-execution
+      if (sessionStorage.getItem(`auth_processing_${sessionId}`)) {
+        if (localStorage.getItem('session_token')) {
+          navigate('/dashboard', { replace: true });
+        }
+        return;
+      }
+      sessionStorage.setItem(`auth_processing_${sessionId}`, 'true');
+
       try {
         const user = await exchangeSession(sessionId);
         // Clear the hash and redirect
