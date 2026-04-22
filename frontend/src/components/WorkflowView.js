@@ -50,6 +50,7 @@ const WorkflowView = ({ workflow: initialWorkflow, onBack, onRefreshNotification
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflow.workflow_id]);
 
   const handleGenerateSummary = async () => {

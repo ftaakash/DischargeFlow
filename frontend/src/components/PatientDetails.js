@@ -41,6 +41,7 @@ const PatientDetails = ({ patient, onBack, onWorkflowSelect, onRefreshNotificati
 
   useEffect(() => {
     fetchWorkflow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patient.patient_id]);
 
   const handleInitiateDischarge = async () => {
