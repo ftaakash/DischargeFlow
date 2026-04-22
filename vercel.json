@@ -19,8 +19,16 @@
       "destination": "/backend/server.py"
     },
     {
+      "source": "/static/(.*)",
+      "destination": "/frontend/static/$1"
+    },
+    {
+      "source": "/(.*)\\.([^/]+)",
+      "destination": "/frontend/$1.$2"
+    },
+    {
       "source": "/(.*)",
-      "destination": "/frontend/$1"
+      "destination": "/frontend/index.html"
     }
   ]
 }
