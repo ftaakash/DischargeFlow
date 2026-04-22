@@ -9,7 +9,11 @@ const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 axios.interceptors.request.use(config => {
   const token = localStorage.getItem('session_token');
   if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
+    if (config.headers && typeof config.headers.set === 'function') {
+      config.headers.set('Authorization', `Bearer ${token}`);
+    } else {
+      config.headers = { ...config.headers, Authorization: `Bearer ${token}` };
+    }
   }
   return config;
 });
@@ -21,6 +25,11 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = useCallback(async () => {
     try {
       const token = localStorage.getItem('session_token');
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return null;
+      }
       const response = await axios.get(`${API}/auth/me`, {
         withCredentials: true
       });
