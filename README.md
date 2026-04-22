@@ -21,6 +21,9 @@
 - **📈 Patient Census Tracking:** See live patient counts, track detailed room assignments, and monitor real-time admission/pending statuses.
 - **⚡ AI-Powered Discharge Summaries:** Utilizes a custom LLM pipeline to automatically generate precise, HIPAA-aware discharge paperwork for departing patients.
 - **📋 Smart Workflow Task Management:** 3-state checkbox system seamlessly manages collaborative steps required to get a patient out the door securely.
+- **🤖 NLP AI Chatbot:** An intelligent command interface allowing clinicians to create patients, assign tasks, submit claims, and query analytics using natural language.
+- **💰 Insurance Claims Engine:** Fully-integrated, HIPAA 837 compliant billing module with table tracking, advanced reporting, and denial-rate visualizations.
+- **🔒 Compliance & Audit Trail:** Automatic intercept middleware ensuring GDPR & HIPAA adherence, featuring consent toggling, patient data anonymization (Right to Erasure), and immutable, system-wide activity logging.
 - **🛡️ Enterprise DevOps Pipeline:** Includes zero-touch deployment integrations with Docker, full Kubernetes orchestration, GitHub Actions CI compilation tests, Dependabot scanners, and automatic header security mitigations via Python middlewares.
 
 ## 🚀 Getting Started
