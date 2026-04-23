@@ -1388,12 +1388,19 @@ async def chatbot_message(req: ChatRequest, request: Request, user: User = Depen
         else:
             result["response"] = "Please provide the minimum claim details (Insurer Name, Billed Amount, etc.)"
     elif intent == "list_patients":
+        await seed_mock_data_if_empty()
         patients = await db.patients.find({}, {"_id": 0}).to_list(50)
         names = [p["name"] for p in patients]
         result["response"] = f"There are {len(patients)} patients currently in the system: {', '.join(names[:5])}{'...' if len(names) > 5 else '.'}"
         result["data"] = {"count": len(patients), "patients": patients[:5]}
     elif intent == "list_tasks":
-        tasks = await db.tasks.find({"assigned_to": user.user_id}, {"_id": 0}).to_list(20)
+        await seed_mock_data_if_empty()
+        tasks = await db.tasks.find({
+            "$or": [
+                {"assigned_to": user.user_id},
+                {"assigned_role": user.role}
+            ]
+        }, {"_id": 0}).to_list(20)
         if tasks:
             result["response"] = f"You have {len(tasks)} assigned task(s). First task: '{tasks[0]['title']}' — Status: {tasks[0]['status']}."
         else:
