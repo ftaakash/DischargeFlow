@@ -409,12 +409,43 @@ async def update_user_role(
 # PATIENT ROUTES
 # ========================
 
+async def seed_mock_data_if_empty():
+    """Vercel Hack: If serverless architecture dropped the Db natively, aggressively re-seed it so the dashboard has Demo structures"""
+    if await db.patients.count_documents({}) == 0:
+        pat_id = f"pat_{uuid.uuid4().hex[:12]}"
+        await db.patients.insert_one({
+            "patient_id": pat_id,
+            "name": "Sarah Jenkins",
+            "date_of_birth": "1954-08-22",
+            "admission_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "room_number": "402B",
+            "diagnosis": "Post-op Hip Replacement",
+            "status": "ready_for_discharge",
+            "attending_physician": "Dr. Michael Chen",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+        await db.tasks.insert_one({
+            "task_id": f"tsk_{uuid.uuid4().hex[:12]}",
+            "workflow_id": "wf_1",
+            "patient_id": pat_id,
+            "title": "Finalize Transfer Papers",
+            "description": "Ensure SAR facility accepts the payload",
+            "category": "administrative",
+            "status": "pending",
+            "assigned_role": "nurse",
+            "priority": "high",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+
 @patients_router.get("")
 async def get_patients(
     status: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """Get all patients"""
+    await seed_mock_data_if_empty()
     query = {}
     if status:
         query["status"] = status
@@ -687,6 +718,7 @@ async def get_tasks(
     user: User = Depends(get_current_user)
 ):
     """Get tasks (optionally filtered by role/status)"""
+    await seed_mock_data_if_empty()
     query = {}
     if role:
         query["assigned_role"] = role
