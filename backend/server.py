@@ -12,9 +12,12 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
+import jwt
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+JWT_SECRET = os.environ.get("JWT_SECRET", "dischargeflow-insecure-default-key-for-demo")
 
 # MongoDB connection (mocked)
 mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
@@ -237,32 +240,14 @@ async def get_current_user(request: Request) -> User:
     if not session_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    # Find session
-    session_doc = await db.user_sessions.find_one(
-        {"session_token": session_token},
-        {"_id": 0}
-    )
-    if not session_doc:
-        raise HTTPException(status_code=401, detail="Session expired or invalid")
-    
-    # Check expiry
-    expires_at = session_doc["expires_at"]
-    if isinstance(expires_at, str):
-        expires_at = datetime.fromisoformat(expires_at)
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if expires_at < datetime.now(timezone.utc):
+    # Stateless Vercel Identity Persistence Strategy
+    try:
+        user_data = jwt.decode(session_token, JWT_SECRET, algorithms=["HS256"])
+        return User(**user_data)
+    except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Session expired")
-    
-    # Get user
-    user_doc = await db.users.find_one(
-        {"user_id": session_doc["user_id"]},
-        {"_id": 0}
-    )
-    if not user_doc:
-        raise HTTPException(status_code=401, detail="User not found")
-    
-    return User(**user_doc)
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 def require_roles(allowed_roles: List[str]):
     """Dependency to check user role"""
@@ -343,20 +328,21 @@ async def create_session(request: Request, response: Response):
         }
         await db.notifications.insert_one(notif)
     
-    # Create session
-    session_token = user_data.get("session_token", f"st_{uuid.uuid4().hex}")
-    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    # Get updated user to mint the stateless credential
+    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     
-    session_doc = {
-        "session_id": f"sess_{uuid.uuid4().hex[:16]}",
-        "user_id": user_id,
-        "session_token": session_token,
-        "expires_at": expires_at.isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.user_sessions.insert_one(session_doc)
+    # We natively embed the User scope into the resilient stateless JWT Token
+    session_token = jwt.encode({
+        "user_id": user_doc["user_id"],
+        "email": user_doc["email"],
+        "name": user_doc["name"],
+        "picture": user_doc.get("picture"),
+        "role": user_doc["role"],
+        "created_at": user_doc["created_at"],
+        "exp": datetime.now(timezone.utc) + timedelta(days=7)
+    }, JWT_SECRET, algorithm="HS256")
     
-    # Set cookie
+    # Set cookie synchronously
     response.set_cookie(
         key="session_token",
         value=session_token,
@@ -366,9 +352,6 @@ async def create_session(request: Request, response: Response):
         path="/",
         max_age=7 * 24 * 60 * 60  # 7 days
     )
-    
-    # Get updated user
-    user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     
     return {"success": True, "token": session_token, "user": user_doc}
 
