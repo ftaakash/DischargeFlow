@@ -3,7 +3,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.70"
+      version = "~> 6.71"
     }
   }
   # Partial configuration: `terraform init -backend-config=backend.hcl` (see backend.hcl.example and infra/README.md).
