@@ -1,6 +1,6 @@
 # Tracing for long-running deployments (Docker/ECS). Installed by the Dockerfile; Vercel skips it to stay small.
 # Enabled at runtime only when OTEL_EXPORTER_OTLP_ENDPOINT is set (app/core/observability.py).
-opentelemetry-sdk==1.45.1
-opentelemetry-exporter-otlp-proto-http==1.45.1
+opentelemetry-sdk==1.45.2
+opentelemetry-exporter-otlp-proto-http==1.45.2
 opentelemetry-instrumentation-fastapi==0.66b1
 opentelemetry-instrumentation-sqlalchemy==0.66b1
