@@ -31,12 +31,12 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Build the API image
       run: |
         docker build -t "dischargeflow-api:${GITHUB_SHA}" ./backend
         docker save "dischargeflow-api:${GITHUB_SHA}" | gzip > api-image.tar.gz
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: api-image
         path: api-image.tar.gz
@@ -52,16 +52,16 @@ jobs:
       contents: read
       id-token: write
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v4
+    - uses: actions/checkout@v7
+    - uses: actions/download-artifact@v8
       with:
         name: frontend-build
         path: frontend-build
-    - uses: aws-actions/configure-aws-credentials@v4
+    - uses: aws-actions/configure-aws-credentials@v6
       with:
         role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
         aws-region: ${{ vars.AWS_REGION }}
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v8
       with:
         name: api-image
     - uses: aws-actions/amazon-ecr-login@v2
@@ -102,16 +102,16 @@ jobs:
       contents: read
       id-token: write
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v4
+    - uses: actions/checkout@v7
+    - uses: actions/download-artifact@v8
       with:
         name: frontend-build
         path: frontend-build
-    - uses: aws-actions/configure-aws-credentials@v4
+    - uses: aws-actions/configure-aws-credentials@v6
       with:
         role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
         aws-region: ${{ vars.AWS_REGION }}
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v8
       with:
         name: api-image
     - uses: aws-actions/amazon-ecr-login@v2
