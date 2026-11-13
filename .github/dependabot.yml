@@ -1,9 +1,12 @@
 # Weekly dependency updates for every ecosystem in the repo (ADR-001 Phase 6, item 23).
 # Minor and patch updates are grouped into one PR per ecosystem; major updates arrive one by one.
+# open-pull-requests-limit: 0 pauses version-update PRs (security updates are unaffected).
+# Raise it to resume them.
 version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/frontend"
+    open-pull-requests-limit: 0
     schedule:
       interval: "weekly"
     assignees:
@@ -14,6 +17,7 @@ updates:
 
   - package-ecosystem: "pip"
     directory: "/backend"
+    open-pull-requests-limit: 0
     schedule:
       interval: "weekly"
     assignees:
@@ -24,6 +28,7 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    open-pull-requests-limit: 0
     schedule:
       interval: "weekly"
     assignees:
@@ -36,6 +41,7 @@ updates:
     directories:
       - "/backend"
       - "/frontend"
+    open-pull-requests-limit: 0
     schedule:
       interval: "weekly"
     assignees:
@@ -45,6 +51,7 @@ updates:
     directories:
       - "/infra/envs/staging"
       - "/infra/envs/prod"
+    open-pull-requests-limit: 0
     schedule:
       interval: "monthly"
     assignees:
